@@ -1,21 +1,27 @@
 <script>
-	// const compatData = require('@mdn/browser-compat-data/index');
 	import compatData from '@mdn/browser-compat-data';
 
-	export let topicName;
-	export let mdnUrl;
+	export let topics;
+	export let name;
+	export let url;
 
-	const wsUri = 'wss://us-nyc-1.piesocket.com/v3/1?api_key=unCNCLtR9PyKBXEDHxIduNmMrK1Vtr447QQCkU3A&notify_self';
+	const wsUri = 'wss://s7773.nyc3.piesocket.com/v3/1?api_key=OfAcGdq74C0lkU6EVppABXqj5voOUNJKel2n2WH5&notify_self';
 	const websocket = new WebSocket(wsUri);
 
 	websocket.onopen = console.info;
 	websocket.onclose = console.info;
 	websocket.onmessage = (e) => {
-		topicName = '';
-		mdnUrl = '';
+		if (name) {
+			topics = topics = [{
+				name,
+				url,
+			}, ...topics];
+		}
+		name = '';
+		url = '';
 
 		window.setTimeout(() => {
-			({topicName, mdnUrl} = JSON.parse(e.data));
+			({name, url} = JSON.parse(e.data));
 		}, 50);
 	};
 	websocket.onerror = console.error;
@@ -27,20 +33,17 @@
 			'api',
 		];
 		const randomArea = areas[Math.floor(Math.random() * areas.length)]
-		const sections = Object.keys(compatData[randomArea]);
+		const sections = Object.keys(compatData[randomArea]).filter(section => section !== 'manifest');
 		const randomSection = sections[Math.floor(Math.random() * sections.length)];
-		const topicNames = Object.keys(compatData[randomArea][randomSection]);
-		const randomTopic = topicNames[Math.floor(Math.random() * topicNames.length)];
+		const topics = Object.keys(compatData[randomArea][randomSection]);
+		const randomTopic = topics[Math.floor(Math.random() * topics.length)];
 
 		try {
-			const url = compatData[randomArea][randomSection][randomTopic].__compat.mdn_url;
-
-			topicName = '';
-			mdnUrl = '';
+			const mdnUrl = compatData[randomArea][randomSection][randomTopic].__compat.mdn_url;
 
 			websocket.send(JSON.stringify({
-				topicName: `${randomArea.toUpperCase()} | ${randomSection} | ${randomTopic}`,
-				mdnUrl: url,
+				name: `${randomArea.toUpperCase()} | ${randomSection} | ${randomTopic}`,
+				url: mdnUrl,
 			}));
 		} catch (e) {
 			nextTopic();
@@ -56,11 +59,16 @@
 	<main>
 		<h1>Das Working Draft Webtechnologie Glücksrad</h1>
 		<div aria-live="assertive">
-		{#if topicName}
-			<p><a href="{mdnUrl}" target="_blank">{topicName}</a></p>
+		{#if name}
+			<p><a href="{url}" target="_blank">{name}</a></p>
 		{/if}
 		</div>
 		<button on:click={nextTopic}>Zufallsgenerator aktivieren!</button>
+		<ul class="past-topics" aria-label="Vorherige Themen">
+		{#each topics as topic}
+			<li><a href="{topic.url}" target="_blank">{topic.name}</a></li>
+		{/each}
+		</ul>
 	</main>
 </div>
 
@@ -75,6 +83,30 @@
 	@keyframes blink-caret {
 		from, to { border-color: transparent }
 		50% { border-color: currentColor; }
+	}
+
+	/* The list effect */
+	@keyframes listEven {
+		from {
+			max-height: 0;
+			opacity: 0;
+		}
+		to {
+			max-height: 2em;
+			opacity: 1;
+		}
+	}
+
+	/* The list effect */
+	@keyframes listOdd {
+		from {
+			max-height: 0;
+			opacity: 0;
+		}
+		to {
+			max-height: 2em;
+			opacity: 1;
+		}
 	}
 
 	.wrapper {
@@ -112,5 +144,34 @@
 		font-weight: 600;
 		white-space: nowrap; /* Keeps the content on a single line */
 		animation: typing 3.5s steps(40, end), blink-caret .75s step-end 4;
+	}
+
+	.past-topics {
+		list-style: none;
+		position: absolute;
+		left: 50%;
+		transform: translateX(-50%);
+		display: block;
+		margin: 0;
+		padding: 1em 0;
+	}
+
+	.past-topics li {
+		overflow: hidden;
+		margin: 0 0 0.25em 0;
+		padding: 0;
+		white-space: nowrap;
+	}
+
+	.past-topics a {
+		color: #999;
+	}
+
+	.past-topics li:first-child:nth-last-child(even) {
+		animation: listEven 600ms;
+	}
+
+	.past-topics li:first-child:nth-last-child(odd) {
+		animation: listOdd 600ms;
 	}
 </style>
