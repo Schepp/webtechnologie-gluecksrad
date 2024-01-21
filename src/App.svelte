@@ -26,23 +26,43 @@
 	};
 	websocket.onerror = console.error;
 
+	function randomlyDrillDownUntilTopic(item, path = []) {
+		if (item.__compat) {
+			return {
+				path,
+				randomTopic: item,
+			};
+		}
+
+		const filteredSectionNames = Object.keys(item).filter(section => section !== 'manifest');
+		const randomIndex = Math.floor(Math.random() * filteredSectionNames.length);
+		const sectionName = filteredSectionNames[randomIndex];
+		const section = item[sectionName];
+
+		path.push(sectionName)
+
+		return randomlyDrillDownUntilTopic(section, path);
+	}
+
 	function nextTopic() {
 		const areas = [
 			'css',
 			'html',
+			'svg',
+			'javascript',
 			'api',
 		];
-		const randomArea = areas[Math.floor(Math.random() * areas.length)]
-		const sections = Object.keys(compatData[randomArea]).filter(section => section !== 'manifest');
-		const randomSection = sections[Math.floor(Math.random() * sections.length)];
-		const topics = Object.keys(compatData[randomArea][randomSection]);
-		const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+		const randomArea = areas[Math.floor(Math.random() * areas.length)];
+
+		console.log({ compatData });
+
+		const { randomTopic, path } = randomlyDrillDownUntilTopic(compatData[randomArea]);
 
 		try {
-			const mdnUrl = compatData[randomArea][randomSection][randomTopic].__compat.mdn_url;
+			const mdnUrl = randomTopic.__compat.mdn_url;
 
 			websocket.send(JSON.stringify({
-				name: `${randomArea.toUpperCase()} | ${randomSection} | ${randomTopic}`,
+				name: `${randomArea.toUpperCase()} | ${path.join(' | ')}`,
 				url: mdnUrl,
 			}));
 		} catch (e) {
