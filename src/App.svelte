@@ -1,32 +1,50 @@
 <script>
 	import compatData from '@mdn/browser-compat-data';
 
-	export let topics;
+	console.log({ compatData });
+
+	export let topics = [];
 	export let name;
 	export let url;
+
+	export let availableAreasMap = {
+		'css': ':CSS',
+		'html': '<HTML>',
+		'svg': '<SVG>',
+		'javascript': 'JavaScript()',
+		'api': 'APIs',
+		'a11y': 'A11Y',
+	};
+	export let availableAreas = Object.keys(availableAreasMap);
+	export let selectedAreas = availableAreas.map(() => true);
 
 	const wsUri = 'wss://s7773.nyc3.piesocket.com/v3/1?api_key=OfAcGdq74C0lkU6EVppABXqj5voOUNJKel2n2WH5&notify_self';
 	const websocket = new WebSocket(wsUri);
 
-	websocket.onopen = console.info;
-	websocket.onclose = console.info;
-	websocket.onmessage = (e) => {
+	const newEntry = (data) => {
 		if (name) {
 			topics = topics = [{
 				name,
 				url,
 			}, ...topics];
 		}
+
 		name = '';
 		url = '';
 
 		window.setTimeout(() => {
-			({name, url} = JSON.parse(e.data));
+			({name, url} = data);
 		}, 50);
+	};
+
+	websocket.onopen = console.info;
+	websocket.onclose = console.info;
+	websocket.onmessage = (e) => {
+		newEntry(JSON.parse(e.data));
 	};
 	websocket.onerror = console.error;
 
-	function randomlyDrillDownUntilTopic(item, path = []) {
+	function randomlyDrillDownCompatDataUntilTopic(item, path = []) {
 		if (item.__compat) {
 			return {
 				path,
@@ -41,33 +59,77 @@
 
 		path.push(sectionName)
 
-		return randomlyDrillDownUntilTopic(section, path);
+		return randomlyDrillDownCompatDataUntilTopic(section, path);
 	}
 
 	function nextTopic() {
-		const areas = [
-			'css',
-			'html',
-			'svg',
-			'javascript',
-			'api',
-		];
+		const areas = availableAreas.filter((area, index) => selectedAreas[index]);
+
+		if (!areas.length) {
+			return;
+		}
+
 		const randomArea = areas[Math.floor(Math.random() * areas.length)];
 
-		console.log({ compatData });
+		const findKeyInCompatData = (tree, key, path = []) => {
+			return Object
+				.keys(tree)
+				.reduce((path, treeKey) => {
+					if (JSON.stringify(tree[treeKey]).indexOf(`"${key}"`) > -1) {
+						path.push(treeKey);
 
-		const { randomTopic, path } = randomlyDrillDownUntilTopic(compatData[randomArea]);
+						if (treeKey !== key) {
+							path = findKeyInCompatData(tree[treeKey], key, path);
+						}
+					}
 
-		try {
-			const mdnUrl = randomTopic.__compat.mdn_url;
+					return path;
+				}, path);
+		};
 
-			websocket.send(JSON.stringify({
-				name: `${randomArea.toUpperCase()} | ${path.join(' | ')}`,
-				url: mdnUrl,
-			}));
-		} catch (e) {
-			nextTopic();
+		console.log({ randomArea, compatData });
+
+		let randomTopic, path;
+
+		switch (true) {
+			default:
+				({ randomTopic, path } = randomlyDrillDownCompatDataUntilTopic(compatData[randomArea]));
+				break;
+
+			case randomArea === 'a11y': {
+				const subpath = compatData.api.Element;
+
+				console.log({ subpath });
+
+				const filteredAttributeNames = Object
+							.keys(subpath)
+							.filter((name) => (name === 'role' || name.startsWith('aria')));
+				const randomIndex = Math.floor(Math.random() * filteredAttributeNames.length);
+				const randomAttribute = filteredAttributeNames[randomIndex];
+
+				randomTopic = subpath[randomAttribute];
+				path = [randomAttribute]; // ['compatData', 'api', 'Element', 'ElementInternals']
+				}
+				break;
 		}
+
+		const url = randomTopic.__compat.mdn_url || randomTopic.__compat.spec_url;
+
+		if (!url || topics.find((topic) => topic.url === url)) {
+			nextTopic();
+			return;
+		}
+
+		console.log({ randomTopic, path });
+
+		const data = {
+			name: `${availableAreasMap[randomArea]} | ${path.join(' | ')}`,
+			url,
+		};
+
+		// newEntry(data);
+
+		websocket.send(JSON.stringify(data));
 	}
 </script>
 
@@ -78,6 +140,11 @@
 
 	<main>
 		<h1>Das Working Draft Webtechnologie Glücksrad</h1>
+		<div role="group" aria-label="Themenbereiche aktivieren oder deaktivieren" class="checkboxes">
+		{#each availableAreas as area, index}
+			<label class="checkbox"><input type="checkbox" value={area} bind:checked={selectedAreas[index]}> {availableAreasMap[area]}</label>
+		{/each}
+		</div>
 		<div aria-live="assertive">
 		{#if name}
 			<p><a href="{url}" target="_blank">{name}</a></p>
@@ -193,5 +260,18 @@
 
 	.past-topics li:first-child:nth-last-child(odd) {
 		animation: listOdd 600ms;
+	}
+
+	.checkboxes {
+		display: flex;
+		gap: 1em;
+		flex-wrap: wrap;
+		justify-content: center;
+		margin: 1em auto;
+	}
+
+	.checkbox {
+		accent-color: #8f098f;
+		display: inline-block;
 	}
 </style>
