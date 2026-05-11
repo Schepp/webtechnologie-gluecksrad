@@ -1,21 +1,12 @@
 <script>
-	import compatData from '@mdn/browser-compat-data';
+	import mdnData from './mdn-data.json';
 
-	console.log({ compatData });
+	console.log({ compatData: mdnData });
 
 	export let topics = [];
 	export let name;
 	export let url;
-
-	export let availableAreasMap = {
-		'css': ':CSS',
-		'html': '<HTML>',
-		'svg': '<SVG>',
-		'javascript': 'JavaScript()',
-		'api': 'APIs',
-		'a11y': 'A11Y',
-	};
-	export let availableAreas = Object.keys(availableAreasMap);
+	export let availableAreas = Object.keys(mdnData);
 	export let selectedAreas = availableAreas.map(() => true);
 
 	const wsUri = 'wss://s7773.nyc3.piesocket.com/v3/1?api_key=OfAcGdq74C0lkU6EVppABXqj5voOUNJKel2n2WH5&notify_self';
@@ -44,24 +35,6 @@
 	};
 	websocket.onerror = console.error;
 
-	function randomlyDrillDownCompatDataUntilTopic(item, path = []) {
-		if (item.__compat) {
-			return {
-				path,
-				randomTopic: item,
-			};
-		}
-
-		const filteredSectionNames = Object.keys(item).filter(section => section !== 'manifest');
-		const randomIndex = Math.floor(Math.random() * filteredSectionNames.length);
-		const sectionName = filteredSectionNames[randomIndex];
-		const section = item[sectionName];
-
-		path.push(sectionName)
-
-		return randomlyDrillDownCompatDataUntilTopic(section, path);
-	}
-
 	function nextTopic() {
 		const areas = availableAreas.filter((area, index) => selectedAreas[index]);
 
@@ -70,60 +43,13 @@
 		}
 
 		const randomArea = areas[Math.floor(Math.random() * areas.length)];
+        const topics =  Object.keys(mdnData[randomArea]);
+        const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+        const url = mdnData[randomArea][randomTopic];
 
-		const findKeyInCompatData = (tree, key, path = []) => {
-			return Object
-				.keys(tree)
-				.reduce((path, treeKey) => {
-					if (JSON.stringify(tree[treeKey]).indexOf(`"${key}"`) > -1) {
-						path.push(treeKey);
-
-						if (treeKey !== key) {
-							path = findKeyInCompatData(tree[treeKey], key, path);
-						}
-					}
-
-					return path;
-				}, path);
-		};
-
-		console.log({ randomArea, compatData });
-
-		let randomTopic, path;
-
-		switch (true) {
-			default:
-				({ randomTopic, path } = randomlyDrillDownCompatDataUntilTopic(compatData[randomArea]));
-				break;
-
-			case randomArea === 'a11y': {
-				const subpath = compatData.api.Element;
-
-				console.log({ subpath });
-
-				const filteredAttributeNames = Object
-							.keys(subpath)
-							.filter((name) => (name === 'role' || name.startsWith('aria')));
-				const randomIndex = Math.floor(Math.random() * filteredAttributeNames.length);
-				const randomAttribute = filteredAttributeNames[randomIndex];
-
-				randomTopic = subpath[randomAttribute];
-				path = [randomAttribute]; // ['compatData', 'api', 'Element', 'ElementInternals']
-				}
-				break;
-		}
-
-		const url = randomTopic.__compat.mdn_url || randomTopic.__compat.spec_url;
-
-		if (!url || topics.find((topic) => topic.url === url)) {
-			nextTopic();
-			return;
-		}
-
-		console.log({ randomTopic, path });
 
 		const data = {
-			name: `${availableAreasMap[randomArea]} | ${path.join(' | ')}`,
+			name: `${randomArea} | ${randomTopic}`,
 			url,
 		};
 
@@ -142,7 +68,7 @@
 		<h1>Das Working Draft Webtechnologie Glücksrad</h1>
 		<div role="group" aria-label="Themenbereiche aktivieren oder deaktivieren" class="checkboxes">
 		{#each availableAreas as area, index}
-			<label class="checkbox"><input type="checkbox" value={area} bind:checked={selectedAreas[index]}> {availableAreasMap[area]}</label>
+			<label class="checkbox"><input type="checkbox" value={area} bind:checked={selectedAreas[index]}> {area}</label>
 		{/each}
 		</div>
 		<div aria-live="assertive">

@@ -23,7 +23,8 @@
     "svelte": "^3.59.1"
   },
   "dependencies": {
-    "@mdn/browser-compat-data": "^5.6.4",
+    "@mdn/content": "github:mdn/content",
+    "front-matter": "^4.0.2",
     "sirv-cli": "^2.0.2"
   }
 }
